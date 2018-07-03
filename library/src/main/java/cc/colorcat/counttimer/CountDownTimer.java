@@ -65,7 +65,6 @@ public class CountDownTimer {
 
     public CountDownTimer(int totalCount, int intervalInMilliseconds) {
         mTotalCount = totalCount;
-        mCount = totalCount;
         mInterval = intervalInMilliseconds;
     }
 
