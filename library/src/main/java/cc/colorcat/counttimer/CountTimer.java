@@ -19,22 +19,22 @@ package cc.colorcat.counttimer;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.IntDef;
-import android.support.annotation.NonNull;
-import android.widget.TextView;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Author: cxx
  * Date: 2018-07-03
  * GitHub: https://github.com/ccolorcat
  */
-public class CountTimer<V extends TextView> {
+public class CountTimer {
     /**
-     * 倒计时计数状态——已取消或已停止
+     * 倒计时计数状态——已停止
      */
-    public static final int STATE_CANCEL = -1;
+    public static final int STATE_STOP = -1;
     /**
      * 倒计时计数状态——已暂停
      */
@@ -44,159 +44,126 @@ public class CountTimer<V extends TextView> {
      */
     public static final int STATE_GOING = 1;
 
-    private int mTotalCount = 60; // 倒计时总计数
-    private int mCount = mTotalCount; // 当前倒计时计数
+    @IntDef({CountTimer.STATE_STOP, CountTimer.STATE_PAUSE, CountTimer.STATE_GOING})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface State {
+    }
 
-    private int mInterval = 1000; // 倒计时计数间隔时间, 以毫秒为单位
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+
+    private int mTotalCount; // 倒计时总计数
+    private int mCount; // 当前倒计时计数
+    private int mInterval; // 倒计时计数间隔时间，以毫秒为单位。
+    private boolean mReverse = false; // 默认倒计时，即计数由大到小，设置为 true 则计数由小到大。
     @State
-    private int mState = STATE_CANCEL; // 倒计时计数状态
+    private int mState = CountTimer.STATE_STOP; // 倒计时当前计数状态
 
-    private V mView; // 显示倒计时计数的 View
-    private CharSequence mViewTextBak; // 倒计时计数前 mView 显示的文字，用于倒计时结束后重置 mView 显示的文字
+    private List<OnCountDownListener> mCountListeners;
+    private List<OnStateChangeListener> mStateListeners;
 
-    private OnCountDownListener<V> mCountDownListener; // 倒计时计数的监听
-    private OnStateChangeListener<V> mStateListener; // 倒计时计数状态的监听
-    protected final Handler mHandler = new Handler(Looper.getMainLooper());
-
-    private String mFormat; // 显示倒计时计数的文字格式，如想显示成 "还有 xx 秒"，则应设置为 "还有 %d 秒"
-
-    /**
-     * @param v 显示倒计时计数的 View, 不能为空
-     */
-    public CountTimer(@NonNull V v) {
-        this(v, -1, -1);
+    public CountTimer() {
+        this(60, 1000);
     }
 
-    /**
-     * @param v          显示倒计时计数的 View, 不能为空
-     * @param totalCount 倒计时总计数, 须大于 0
-     */
-    public CountTimer(@NonNull V v, int totalCount) {
-        this(v, totalCount, -1);
+    public CountTimer(int totalCount) {
+        this(totalCount, 1000);
     }
 
-    /**
-     * 倒计时总时间: totalCount * 1000 / intervalInMilliseconds
-     *
-     * @param v                      显示倒计时计数的 View, 不能为空
-     * @param totalCount             倒计时总计数, 须大于 0
-     * @param intervalInMilliseconds 倒计时计数间隔时间, 须大于 0, 以毫秒为单位
-     */
-    public CountTimer(@NonNull V v, int totalCount, int intervalInMilliseconds) {
-        mView = checkNotNull(v, "v == null");
-        if (totalCount > 0) {
-            mTotalCount = totalCount;
-        }
-        if (intervalInMilliseconds > 0) {
-            mInterval = intervalInMilliseconds;
-        }
+    public CountTimer(int totalCount, int intervalInMilliseconds) {
+        mTotalCount = totalCount;
+        mInterval = intervalInMilliseconds;
     }
 
-    /**
-     * @param listener 倒计时计数的监听
-     */
-    public void setOnCountDownListener(OnCountDownListener<V> listener) {
-        mCountDownListener = listener;
-    }
-
-    public void setFormat(String format) {
-        mFormat = format;
-    }
-
-    private void notifyCountDownStart() {
-        if (mCountDownListener != null) {
-            mCountDownListener.onStart(mView, mCount);
-        }
-    }
-
-    private void notifyCountDownChanged() {
-        if (mCountDownListener != null) {
-            mCountDownListener.onCountDown(mView, mCount);
-        }
-    }
-
-    private void notifyCountDownEnd() {
-        if (mCountDownListener != null) {
-            mCountDownListener.onEnd(mView, mCount);
-        }
-    }
-
-    /**
-     * @param listener 倒计时计数状态的监听
-     */
-    public void setOnStateChangeListener(OnStateChangeListener<V> listener) {
-        mStateListener = listener;
-    }
-
-    private void notifyStateChanged() {
-        if (mStateListener != null) {
-            mStateListener.onStateChange(mView, mState);
-        }
-    }
-
-    /**
-     * @param totalCount 倒计时总计数, 须大于 0
-     */
     public void setTotalCount(int totalCount) {
-        if (totalCount > 0) {
-            mTotalCount = totalCount;
+        if (totalCount <= 0) {
+            throw new IllegalArgumentException("totalCount <= 0");
         }
+        mTotalCount = totalCount;
     }
 
-    /**
-     * @param intervalInMilliseconds 倒计时计数间隔时间, 须大于 0, 以毫秒为单位
-     */
     public void setInterval(int intervalInMilliseconds) {
-        if (intervalInMilliseconds > 0) {
-            mInterval = intervalInMilliseconds;
+        if (intervalInMilliseconds <= 0) {
+            throw new IllegalArgumentException("intervalInMilliseconds <= 0");
+        }
+        mInterval = intervalInMilliseconds;
+    }
+
+    public void setReverse(boolean reverse) {
+        mReverse = reverse;
+    }
+
+    public void addOnCountDownListener(OnCountDownListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("listener == null");
+        }
+        if (mCountListeners == null) {
+            mCountListeners = new ArrayList<>(4);
+        }
+        if (!mCountListeners.contains(listener)) {
+            mCountListeners.add(listener);
         }
     }
 
-    /**
-     * @param v 显示倒计时计数的 View, 不能为空
-     */
-    public void setView(@NonNull V v) {
-        mView = checkNotNull(v, "v == null");
+    public void removeOnCountDownListener(OnCountDownListener listener) {
+        if (mCountListeners != null && listener != null) {
+            mCountListeners.remove(listener);
+        }
     }
 
-    /**
-     * @return 显示倒计时计数的 View
-     */
-    public V getView() {
-        return mView;
+    public void addOnStateChangeListener(OnStateChangeListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("listener == null");
+        }
+        if (mStateListeners == null) {
+            mStateListeners = new ArrayList<>(4);
+        }
+        if (!mStateListeners.contains(listener)) {
+            mStateListeners.add(listener);
+        }
     }
 
-    /**
-     * 开始倒计时计数
-     */
+    public void removeOnStateChangeListener(OnStateChangeListener listener) {
+        if (mStateListeners != null && listener != null) {
+            mStateListeners.remove(listener);
+        }
+    }
+
     public void start() {
-        if (mState == STATE_CANCEL) {
-            backupViewText();
+        if (mState == STATE_STOP) {
             resetCount();
-            notifyCountDownStart();
+            notifyCountDownStarted();
             execute();
         }
     }
 
-    /**
-     * 重新开始倒计时计数, 用于暂停后恢复倒计时计数
-     */
+    public void pause() {
+        if (mState == STATE_GOING) {
+            mState = STATE_PAUSE;
+            notifyStateChanged();
+            mHandler.removeCallbacks(mRunnable);
+        }
+    }
+
     public void restart() {
         if (mState == STATE_PAUSE) {
             execute();
         }
     }
 
-    /**
-     * 备份显示倒计时计数的 View 的文字, 以便倒计时计数结束或取消后进行恢复
-     */
-    private void backupViewText() {
-        mViewTextBak = mView.getText();
+    public void stop() {
+        if (mState != STATE_STOP) {
+            mState = STATE_STOP;
+            notifyStateChanged();
+            notifyCountDownStopped();
+            resetCount();
+            mHandler.removeCallbacks(mRunnable);
+        }
     }
 
-    /**
-     * 执行倒计时计数
-     */
+    private void resetCount() {
+        mCount = mReverse ? 0 : mTotalCount;
+    }
+
     private void execute() {
         mState = STATE_GOING;
         notifyStateChanged();
@@ -206,118 +173,98 @@ public class CountTimer<V extends TextView> {
     private Runnable mRunnable = new Runnable() {
         @Override
         public void run() {
-            if (mState != STATE_GOING) return;
-            mCount--;
-            if (mCount > 0) {
-                mView.setText(format(mCount));
-                notifyCountDownChanged();
-                mHandler.postDelayed(mRunnable, mInterval);
-            } else {
-                cancel();
-                notifyCountDownEnd();
+            if (mState == STATE_GOING) {
+                if (mReverse) {
+                    ++mCount;
+                } else {
+                    --mCount;
+                }
+                if (mCount < 0 || mCount > mTotalCount) {
+                    stop();
+                } else {
+                    notifyCountDownChanged();
+                    mHandler.postDelayed(mRunnable, mInterval);
+                }
             }
         }
     };
 
-    private String format(int count) {
-        if (mFormat == null) {
-            return Integer.toString(count);
-        } else {
-            return String.format(mFormat, count);
+
+    private void notifyCountDownStarted() {
+        if (mCountListeners != null) {
+            for (int i = 0, size = mCountListeners.size(); i < size; ++i) {
+                mCountListeners.get(i).onStart();
+            }
         }
     }
 
-    /**
-     * 取消倒计时计数
-     */
-    public void cancel() {
-        if (mState != STATE_CANCEL) {
-            mState = STATE_CANCEL;
-            notifyStateChanged();
-            resetViewText();
-            resetCount();
+    private void notifyCountDownChanged() {
+        if (mCountListeners != null) {
+            for (int i = 0, size = mCountListeners.size(); i < size; ++i) {
+                mCountListeners.get(i).onCountDown(mTotalCount, mCount);
+            }
         }
     }
 
-    /**
-     * 暂停倒计时计数
-     */
-    public void pause() {
-        if (mState == STATE_GOING) {
-            mState = STATE_PAUSE;
-            notifyStateChanged();
+    private void notifyCountDownStopped() {
+        if (mCountListeners != null) {
+            for (int i = 0, size = mCountListeners.size(); i < size; ++i) {
+                mCountListeners.get(i).onStop();
+            }
         }
     }
 
-    /**
-     * 重置倒计时计数
-     */
-    private void resetCount() {
-        mCount = mTotalCount;
+    private void notifyStateChanged() {
+        if (mStateListeners != null) {
+            for (int i = 0, size = mStateListeners.size(); i < size; i++) {
+                mStateListeners.get(i).onStateChanged(mState);
+            }
+        }
     }
 
-    /**
-     * 重置显示倒计时计数的 View 显示的文字
-     */
-    private void resetViewText() {
-        mView.setText(mViewTextBak);
+
+    public static String stateToString(@State int state) {
+        switch (state) {
+            case CountTimer.STATE_GOING:
+                return "GOING";
+            case CountTimer.STATE_PAUSE:
+                return "PAUSE";
+            case CountTimer.STATE_STOP:
+                return "STOP";
+            default:
+                throw new IllegalArgumentException("illegal state");
+        }
     }
 
-    /**
-     * 倒计时计数监听接口
-     *
-     * @param <V> 显示倒计时计数的 View
-     */
-    public interface OnCountDownListener<V extends TextView> {
+
+    public interface OnCountDownListener {
         /**
-         * 倒计时计数开始时被调用，被暂停后继续之前的计数时不会被调用
+         * 倒计时计数开始
          *
-         * @param v            显示倒计时计数的 View
-         * @param currentCount 当前倒计时计数
+         * @see CountTimer#start()
          */
-        void onStart(@NonNull V v, int currentCount);
+        void onStart();
 
         /**
-         * 倒计时计数进行中被调用
-         *
-         * @param v            显示倒计时计数的 View
-         * @param currentCount 当前倒计时计数
+         * 倒计时计数进行中
          */
-        void onCountDown(@NonNull V v, int currentCount);
+        void onCountDown(int totalCount, int currentCount);
 
         /**
-         * 倒计时计数正常结束（即倒计时计数归零）时被调用，被 Cancel 掉很可能不会调用，除非此时刚好计数归零
+         * 倒计时计数停止
          *
-         * @param v            显示倒计时计数的 View
-         * @param currentCount 当前倒计时计数
+         * @see CountTimer#stop()
          */
-        void onEnd(@NonNull V v, int currentCount);
+        void onStop();
     }
 
-    /**
-     * 倒计时计数状态监听接口
-     *
-     * @param <V> 显示倒计时计数的 View
-     */
-    public interface OnStateChangeListener<V extends TextView> {
+
+    public interface OnStateChangeListener {
         /**
          * 倒计时计数状态改变时被调用
          *
-         * @param v     显示倒计时计数的 View
-         * @param state 倒计时计数的状态, 可能为: CountTimer.STATE_CANCEL, CountTimer.STATE_PAUSE, CountTimer.STATE_GOING
+         * @param state 倒计时计数的状态, 可能为: CountTimer.STATE_STOP, CountTimer.STATE_PAUSE, CountTimer.STATE_GOING
          */
-        void onStateChange(@NonNull V v, @State int state);
-    }
-
-    @IntDef({CountTimer.STATE_CANCEL, CountTimer.STATE_GOING, CountTimer.STATE_PAUSE})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface State {
-    }
-
-    private static <T> T checkNotNull(T t, String msg) {
-        if (t == null) {
-            throw new NullPointerException(msg);
-        }
-        return t;
+        void onStateChanged(@State int state);
     }
 }

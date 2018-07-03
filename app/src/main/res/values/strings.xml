@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">CountTimer</string>
+    <string name="text_count_down">Text Count Down</string>
+    <string name="start">start</string>
+    <string name="pause">pause</string>
+    <string name="restart">restart</string>
+    <string name="stop">stop</string>
 </resources>
