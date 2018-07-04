@@ -74,25 +74,38 @@ public class CountTimer {
         mInterval = intervalInMilliseconds;
     }
 
-    public void setTotalCount(int totalCount) {
+    public final int getTotalCount() {
+        return mTotalCount;
+    }
+
+    public final void setTotalCount(int totalCount) {
         if (totalCount <= 0) {
             throw new IllegalArgumentException("totalCount <= 0");
         }
         mTotalCount = totalCount;
     }
 
-    public void setInterval(int intervalInMilliseconds) {
+    public final int getInterval() {
+        return mInterval;
+    }
+
+    public final void setInterval(int intervalInMilliseconds) {
         if (intervalInMilliseconds <= 0) {
             throw new IllegalArgumentException("intervalInMilliseconds <= 0");
         }
         mInterval = intervalInMilliseconds;
     }
 
-    public void setReverse(boolean reverse) {
+    @State
+    public final int getState() {
+        return mState;
+    }
+
+    public final void setReverse(boolean reverse) {
         mReverse = reverse;
     }
 
-    public void addOnCountDownListener(OnCountDownListener listener) {
+    public final void addOnCountDownListener(OnCountDownListener listener) {
         if (listener == null) {
             throw new IllegalArgumentException("listener == null");
         }
@@ -104,13 +117,13 @@ public class CountTimer {
         }
     }
 
-    public void removeOnCountDownListener(OnCountDownListener listener) {
+    public final void removeOnCountDownListener(OnCountDownListener listener) {
         if (mCountListeners != null && listener != null) {
             mCountListeners.remove(listener);
         }
     }
 
-    public void addOnStateChangeListener(OnStateChangeListener listener) {
+    public final void addOnStateChangeListener(OnStateChangeListener listener) {
         if (listener == null) {
             throw new IllegalArgumentException("listener == null");
         }
@@ -122,13 +135,13 @@ public class CountTimer {
         }
     }
 
-    public void removeOnStateChangeListener(OnStateChangeListener listener) {
+    public final void removeOnStateChangeListener(OnStateChangeListener listener) {
         if (mStateListeners != null && listener != null) {
             mStateListeners.remove(listener);
         }
     }
 
-    public void start() {
+    public final void start() {
         if (mState == STATE_STOP) {
             resetCount();
             notifyCountDownStarted();
@@ -136,7 +149,7 @@ public class CountTimer {
         }
     }
 
-    public void pause() {
+    public final void pause() {
         if (mState == STATE_GOING) {
             mState = STATE_PAUSE;
             notifyStateChanged();
@@ -144,13 +157,13 @@ public class CountTimer {
         }
     }
 
-    public void restart() {
+    public final void resume() {
         if (mState == STATE_PAUSE) {
             execute();
         }
     }
 
-    public void stop() {
+    public final void stop() {
         if (mState != STATE_STOP) {
             mState = STATE_STOP;
             notifyStateChanged();
@@ -263,7 +276,10 @@ public class CountTimer {
         /**
          * 倒计时计数状态改变时被调用
          *
-         * @param state 倒计时计数的状态, 可能为: CountTimer.STATE_STOP, CountTimer.STATE_PAUSE, CountTimer.STATE_GOING
+         * @param state 倒计时计数的状态
+         * @see CountTimer#STATE_STOP
+         * @see CountTimer#STATE_PAUSE
+         * @see CountTimer#STATE_GOING
          */
         void onStateChanged(@State int state);
     }

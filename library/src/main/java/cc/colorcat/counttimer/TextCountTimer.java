@@ -42,10 +42,12 @@ public class TextCountTimer<V extends TextView> extends ViewCountTimer<V> {
     protected OnCountDownListener updateViewStateCountDownListener() {
         return new OnCountDownListener() {
             private CharSequence mTextBack;
+            private boolean mEnabledBack;
 
             @Override
             public void onStart() {
                 mTextBack = mView.getText();
+                mEnabledBack = mView.isEnabled();
                 mView.setEnabled(false);
             }
 
@@ -63,7 +65,7 @@ public class TextCountTimer<V extends TextView> extends ViewCountTimer<V> {
                 if (mTextBack != null) {
                     mView.setText(mTextBack);
                 }
-                mView.setEnabled(true);
+                mView.setEnabled(mEnabledBack);
             }
         };
     }

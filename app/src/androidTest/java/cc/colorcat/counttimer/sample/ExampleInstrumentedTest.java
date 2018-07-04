@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package cc.colorcat.counttimer;
+package cc.colorcat.counttimer.sample;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
@@ -37,6 +37,6 @@ public class ExampleInstrumentedTest {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getTargetContext();
 
-        assertEquals("cc.colorcat.counttimer.test", appContext.getPackageName());
+        assertEquals("cc.colorcat.counttimer.sample", appContext.getPackageName());
     }
 }

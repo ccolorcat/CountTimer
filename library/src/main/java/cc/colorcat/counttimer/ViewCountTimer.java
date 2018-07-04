@@ -47,11 +47,15 @@ public class ViewCountTimer<V extends View> extends CountTimer {
         mView = view;
     }
 
-    public void setViewBinder(ViewBinder<V> binder) {
+    public final ViewBinder<V> getViewBinder() {
+        return mBinder;
+    }
+
+    public final void setViewBinder(ViewBinder<V> binder) {
         mBinder = binder;
     }
 
-   protected OnCountDownListener updateViewStateCountDownListener() {
+    protected OnCountDownListener updateViewStateCountDownListener() {
         return new OnCountDownListener() {
             @Override
             public void onStart() {
@@ -74,6 +78,6 @@ public class ViewCountTimer<V extends View> extends CountTimer {
 
 
     public interface ViewBinder<V> {
-        void onBindView(V view, int totalCount, int currentCount);
+        void onBindView(@NonNull V view, int totalCount, int currentCount);
     }
 }
